@@ -1,7 +1,7 @@
-'use strict'
+"use strict";
 
-const { spawn } = require('child_process')
-const duplexify = require('duplexify')
+const { spawn } = require("child_process");
+const duplexify = require("duplexify");
 
 /**
  * Parse a size string (eg. '240x?')
@@ -11,33 +11,35 @@ const duplexify = require('duplexify')
  *                            of the thumbnail, or the scaling percentage
  * @throws  {Error}           Throws on malformed size string
  */
-function parseSize (sizeStr) {
-  const invalidSizeString = new Error('Invalid size string')
-  const percentRegex = /(\d+)%/g
-  const sizeRegex = /(\d+|\?)x(\d+|\?)/g
-  let size
+function parseSize(sizeStr) {
+  const invalidSizeString = new Error("Invalid size string");
+  const percentRegex = /(\d+)%/g;
+  const sizeRegex = /(\d+|\?)x(\d+|\?)/g;
+  let size;
 
-  const percentResult = percentRegex.exec(sizeStr)
-  const sizeResult = sizeRegex.exec(sizeStr)
+  const percentResult = percentRegex.exec(sizeStr);
+  const sizeResult = sizeRegex.exec(sizeStr);
 
   if (percentResult) {
-    size = { percentage: Number.parseInt(percentResult[1]) }
+    size = { percentage: Number.parseInt(percentResult[1]) };
   } else if (sizeResult) {
-    const sizeValues = sizeResult.map(x => x === '?' ? null : Number.parseInt(x))
+    const sizeValues = sizeResult.map((x) =>
+      x === "?" ? null : Number.parseInt(x)
+    );
 
     size = {
       width: sizeValues[1],
-      height: sizeValues[2]
-    }
+      height: sizeValues[2],
+    };
   } else {
-    throw invalidSizeString
+    throw invalidSizeString;
   }
 
   if (size.width === null && size.height === null) {
-    throw invalidSizeString
+    throw invalidSizeString;
   }
 
-  return size
+  return size;
 }
 
 /**
@@ -52,19 +54,12 @@ function parseSize (sizeStr) {
  * @param   {String}  seek   The time to seek, formatted as hh:mm:ss[.ms]
  * @returns {Array<string>}  Array of arguments for ffmpeg
  */
-function buildArgs (input, output, { width, height, percentage }, seek) {
-  const scaleArg = (percentage)
+function buildArgs(input, output, { width, height, percentage }, seek) {
+  const scaleArg = percentage
     ? `-vf scale=iw*${percentage / 100}:ih*${percentage / 100}`
-    : `-vf scale=${width || -1}:${height || -1}`
+    : `-vf scale=${width || -1}:${height || -1}`;
 
-  return [
-    '-y',
-    `-i ${input}`,
-    '-vframes 1',
-    `-ss ${seek}`,
-    scaleArg,
-    output
-  ]
+  return ["-y", `-i ${input}`, "-vframes 1", `-ss ${seek}`, scaleArg, output];
 }
 
 /**
@@ -78,36 +73,40 @@ function buildArgs (input, output, { width, height, percentage }, seek) {
  *                                      the standard output of ffmpeg
  * @returns {Promise}  Promise that resolves once thumbnail is generated
  */
-function ffmpegExecute (path, args, rstream, wstream) {
-  const ffmpeg = spawn(`"${path}"`, args, { shell: true })
-  let stderr = ''
+function ffmpegExecute(path, args, rstream, wstream) {
+  const ffmpeg = spawn(`"${path}"`, args, { shell: true });
+  let stderr = "";
 
   return new Promise((resolve, reject) => {
     if (rstream) {
-      rstream.pipe(ffmpeg.stdin)
+      rstream.pipe(ffmpeg.stdin);
     }
     if (wstream) {
-      ffmpeg.stdout.pipe(wstream)
+      ffmpeg.stdout.pipe(wstream);
     }
 
-    ffmpeg.stderr.on('data', (data) => {
-      stderr += data.toString()
-    })
-    ffmpeg.stderr.on('error', (err) => {
-      reject(err)
-    })
-    ffmpeg.on('exit', (code, signal) => {
+    ffmpeg.stderr.on("data", (data) => {
+      stderr += data.toString();
+    });
+    ffmpeg.stderr.on("error", (err) => {
+      reject(err);
+    });
+    ffmpeg.on("exit", (code, signal) => {
       if (code !== 0) {
-        const err = new Error(`ffmpeg exited ${code}\nffmpeg stderr:\n\n${stderr}`)
-        reject(err)
+        const err = new Error(
+          `ffmpeg exited ${code}\nffmpeg stderr:\n\n${stderr}`
+        );
+        reject(err);
       }
-      if (stderr.includes('nothing was encoded')) {
-        const err = new Error(`ffmpeg failed to encode file\nffmpeg stderr:\n\n${stderr}`)
-        reject(err)
+      if (stderr.includes("nothing was encoded")) {
+        const err = new Error(
+          `ffmpeg failed to encode file\nffmpeg stderr:\n\n${stderr}`
+        );
+        reject(err);
       }
-    })
-    ffmpeg.on('close', resolve)
-  })
+    });
+    ffmpeg.on("close", resolve);
+  });
 }
 
 /**
@@ -119,14 +118,14 @@ function ffmpegExecute (path, args, rstream, wstream) {
  *                                      the standard input of ffmpeg
  * @returns {Promise}  Promise that resolves to ffmpeg stdout
  */
-function ffmpegStreamExecute (path, args, rstream) {
-  const ffmpeg = spawn(path, args, { shell: true })
+function ffmpegStreamExecute(path, args, rstream) {
+  const ffmpeg = spawn(path, args, { shell: true });
 
   if (rstream) {
-    rstream.pipe(ffmpeg.stdin)
+    rstream.pipe(ffmpeg.stdin);
   }
 
-  return Promise.resolve(ffmpeg.stdout)
+  return Promise.resolve(ffmpeg.stdout);
 }
 
 /**
@@ -137,10 +136,10 @@ function ffmpegStreamExecute (path, args, rstream) {
  *                                      the standard input of ffmpeg
  * @returns {stream.Duplex}  A duplex stream :)
  */
-function ffmpegDuplexExecute (path, args) {
-  const ffmpeg = spawn(path, args, { shell: true })
+function ffmpegDuplexExecute(path, args) {
+  const ffmpeg = spawn(path, args, { shell: true });
 
-  return duplexify(ffmpeg.stdin, ffmpeg.stdout)
+  return duplexify(ffmpeg.stdin, ffmpeg.stdout);
 }
 
 /**
@@ -154,34 +153,34 @@ function ffmpegDuplexExecute (path, args) {
  * @param   {String}  [config.seek='00:00:00']  Time to seek for videos
  * @returns {Promise|stream.Duplex}             Resolves on completion, or rejects on error
  */
-function genThumbnail (input, output, size, config = {}) {
-  const ffmpegPath = config.path || process.env.FFMPEG_PATH || 'ffmpeg'
-  const seek = config.seek || '00:00:00'
-  const rstream = typeof input === 'string' ? null : input
-  const wstream = typeof output === 'string' ? null : output
+function genThumbnail(input, output, size, config = {}) {
+  const ffmpegPath = config.path || process.env.FFMPEG_PATH || "ffmpeg";
+  const seek = config.seek || "00:00:00";
+  const rstream = typeof input === "string" ? null : input;
+  const wstream = typeof output === "string" ? null : output;
 
-  let args = ''
+  let args = "";
   if (config.args) {
-    args = config.args
+    args = config.args;
   } else {
-    const parsedSize = parseSize(size)
+    const parsedSize = parseSize(size);
 
     args = buildArgs(
-      typeof input === 'string' ? `"${input}"` : 'pipe:0',
-      typeof output === 'string' ? `"${output}"` : '-f singlejpeg pipe:1',
+      typeof input === "string" ? `"${input}"` : "pipe:0",
+      typeof output === "string" ? `"${output}"` : "-f image2 pipe:1",
       parsedSize,
       seek
-    )
+    );
   }
 
   if ((input === null && output === null) || config.args) {
-    return ffmpegDuplexExecute(ffmpegPath, args)
+    return ffmpegDuplexExecute(ffmpegPath, args);
   }
   if (output === null) {
-    return ffmpegStreamExecute(ffmpegPath, args, rstream)
+    return ffmpegStreamExecute(ffmpegPath, args, rstream);
   }
 
-  return ffmpegExecute(ffmpegPath, args, rstream, wstream)
+  return ffmpegExecute(ffmpegPath, args, rstream, wstream);
 }
 
-module.exports = genThumbnail
+module.exports = genThumbnail;
