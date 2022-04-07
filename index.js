@@ -125,6 +125,8 @@ function ffmpegStreamExecute(path, args, rstream) {
     rstream.pipe(ffmpeg.stdin);
   }
 
+  ffmpeg.stderr.pipe(process.stderr);
+
   return Promise.resolve(ffmpeg.stdout);
 }
 
