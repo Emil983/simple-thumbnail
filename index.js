@@ -71,10 +71,18 @@ function buildArgs(input, output, { width, height, percentage }, seek) {
  *                                      the standard input of ffmpeg
  * @param   {stream.Writable} [wstream] A writable stream to receive data from
  *                                      the standard output of ffmpeg
+ * @param   {Object}          [options] An object that contains various options
  * @returns {Promise}  Promise that resolves once thumbnail is generated
  */
-function ffmpegExecute(path, args, rstream, wstream) {
-  const ffmpeg = spawn(`"${path}"`, args, { shell: true });
+function ffmpegExecute(path, args, rstream, wstream, options) {
+  const spawnOptions = { shell: true };
+  if (options.timeout) {
+    spawnOptions.timeout = options.timeout;
+  }
+  const ffmpeg = spawn(`"${path}"`, args, spawnOptions);
+  if (options.timeout) {
+    const timer = setTimeout(() => process.kill(ffmpeg.pid), options.timeout);
+  }
   let stderr = "";
 
   return new Promise((resolve, reject) => {
@@ -153,9 +161,11 @@ function ffmpegDuplexExecute(path, args) {
  * @param   {Object}  [config={}]  A configuration object
  * @param   {String}  [config.path='ffmpeg']    Path of the ffmpeg binary
  * @param   {String}  [config.seek='00:00:00']  Time to seek for videos
+ * @param   {Object}  [options={}]  An options object
+ * @param   {String}  [options.timeout=60000]    Timeout in milliseconds for ffmpeg process 
  * @returns {Promise|stream.Duplex}             Resolves on completion, or rejects on error
  */
-function genThumbnail(input, output, size, config = {}) {
+function genThumbnail(input, output, size, config = {}, options = {}) {
   const ffmpegPath = config.path || process.env.FFMPEG_PATH || "ffmpeg";
   const seek = config.seek || "00:00:00";
   const rstream = typeof input === "string" ? null : input;
@@ -182,7 +192,7 @@ function genThumbnail(input, output, size, config = {}) {
     return ffmpegStreamExecute(ffmpegPath, args, rstream);
   }
 
-  return ffmpegExecute(ffmpegPath, args, rstream, wstream);
+  return ffmpegExecute(ffmpegPath, args, rstream, wstream, options);
 }
 
 module.exports = genThumbnail;
